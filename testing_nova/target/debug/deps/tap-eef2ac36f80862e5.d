@@ -1,0 +1,10 @@
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/tap-eef2ac36f80862e5.rmeta: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/conv.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/pipe.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/tap.rs
+
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/libtap-eef2ac36f80862e5.rlib: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/conv.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/pipe.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/tap.rs
+
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/tap-eef2ac36f80862e5.d: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/conv.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/pipe.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/tap.rs
+
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/lib.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/conv.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/pipe.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tap-1.0.1/src/tap.rs:

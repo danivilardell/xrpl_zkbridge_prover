@@ -1,0 +1,10 @@
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/group-b4ef2b1646dbc891.rmeta: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/cofactor.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/prime.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/wnaf.rs
+
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/libgroup-b4ef2b1646dbc891.rlib: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/cofactor.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/prime.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/wnaf.rs
+
+/Users/danielvilardellregue/Projects/ZKP_hackathon/xrpl_zkbridge_prover/testing_nova/target/debug/deps/group-b4ef2b1646dbc891.d: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/lib.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/cofactor.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/prime.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/wnaf.rs
+
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/lib.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/cofactor.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/prime.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/group-0.12.1/src/wnaf.rs:
