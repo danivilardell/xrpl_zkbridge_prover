@@ -79,7 +79,7 @@ We can see here some benchmarking results for the generation of the proof using 
 | Generate R1CS                | 48s           |
 | Load R1CS file               | 19s           |
 | Generate public parameters   | 1030s         |
-| Create Folded instance       | 45s/instance  |
+| Create Folded instance       | 40s/instance  |
 | Generate final proof         | 847s          |
 
-So for 35 signatures, proof generation would take around 40 minutes, taking into account that the public parameters can be precomputed and we would only need to fold the instances and generate the final proof.
+So for 35 signatures, proof generation would take around 38 minutes, taking into account that the public parameters can be precomputed and we would only need to fold the instances and generate the final proof.
