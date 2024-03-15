@@ -65,8 +65,8 @@ Below are the instructions needed to generate the proof. (This instruction set w
    ```sh
    git clone https://github.com/danivilardell/xrpl_zkbridge_prover.git
    ```
-6. Move the file `circom-ecdsa/build/verify/verify.r1cs` and folder `circom-ecdsa/build/verify/verify_cpp` into the `xrpl_zkbridge_prover/testing_nova/src/testing_files` subdirectory.
-7. Now in `xrpl_zkbridge_prover/testing_nova/src` generate the recursive proof via
+6. Move the file `circom-ecdsa/build/verify/verify.r1cs` and folder `circom-ecdsa/build/verify/verify_cpp` into the `xrpl_zkbridge_prover/ecdsa_nova/src/testing_files` subdirectory.
+7. Now in `xrpl_zkbridge_prover/ecdsa_nova/src` generate the recursive proof via
    ```sh
    cargo run
    ```
