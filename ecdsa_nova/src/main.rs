@@ -3,6 +3,10 @@ use std::{collections::HashMap, env::current_dir, time::Instant};
 use nova_snark::{CompressedSNARK, PublicParams};
 use serde_json::json;
 use std::io::{Write, Read};
+use serde_json::Value;
+use std::fs::File;
+use serde::{Serialize, Deserialize};
+
 
 fn _compress_data(data: &[u8]) -> Vec<u8> {
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -17,9 +21,17 @@ fn _decompress_data(data: &[u8]) -> Vec<u8> {
     decompressed
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Witness {
+    r: [String; 4],
+    s: [String; 4],
+    mghash: [String; 4],
+    pubkey: [[String; 4]; 2],
+}
+
 fn main() {
 
-    let iteration_count = 4;
+    let iteration_count = 2;
     let root = current_dir().unwrap();
 
     // The cycle of curves we use, can be any cycle supported by Nova
@@ -28,42 +40,34 @@ fn main() {
 
     let mut private_inputs = Vec::new();
 
-    /*{"r": ["11878389131962663075",
-        "9922462056030557342",
-        "6756396965793543634",
-       "12446269625364732260"],
- "s": ["18433728439776304144",
-        "9948993517021512060",
-        "8616204783675899344",
-      "12630110559440107129"],
- "msghash": ["7828219513492386041",
-             "3988479630986735061",
-            "17828618373474417767",
-            "7725776341465200115"],
- "pubkey": [["15936664623177566288",
-              "3250397285527463885",
-             "12867682233480762946",
-             "7876377878669208042"],
-            ["17119974326854866418",
-              "4804456518640350784",
-             "12443422089272457229",
-              "9048921188902050084"]]
-}
- */
-    for _ in 0..iteration_count {
+    let input_json_path = "./src/testing_files/input_data.json";
+    let mut input_json_file = File::open(input_json_path).expect("Failed to open file");
+
+    // Read the file contents into a string
+    let mut input_json_string = String::new();
+    input_json_file.read_to_string(&mut input_json_string)
+        .expect("Failed to read file");
+
+    // Parse the JSON string into a serde_json::Value
+    let input_json: Value = serde_json::from_str(&input_json_string).expect("Failed to parse JSON");
+    let datas: Vec<Witness> = serde_json::from_str(&input_json_string).unwrap();
+
+    println!("Input JSON: {:?}", input_json);
+
+    for wtns in datas {
         let mut private_input = HashMap::new();
-        private_input.insert("r".to_string(), json!(["11878389131962663075", "9922462056030557342", "6756396965793543634", "12446269625364732260"]));
-        private_input.insert("s".to_string(), json!(["18433728439776304144", "9948993517021512060", "8616204783675899344", "12630110559440107129"]));
-        private_input.insert("msghash".to_string(), json!(["7828219513492386041", "3988479630986735061", "17828618373474417767", "7725776341465200115"]));
-        private_input.insert("pubkey".to_string(), json!([["15936664623177566288", "3250397285527463885", "12867682233480762946", "7876377878669208042"], ["17119974326854866418", "4804456518640350784", "12443422089272457229", "9048921188902050084"]]));
+        private_input.insert("r".to_string(), json!(wtns.r));
+        private_input.insert("s".to_string(), json!(wtns.s));
+        private_input.insert("msghash".to_string(), json!(wtns.mghash));
+        private_input.insert("pubkey".to_string(), json!(wtns.pubkey));
         private_inputs.push(private_input);
     }
 
     println!("Private inputs: {:?}", private_inputs);
 
-    let circuit_file = root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/verify.r1cs");
+    let circuit_file = root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify.r1cs");
     let witness_generator_file =
-        root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/verify_js/verify.wasm");
+        root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify_js/verify.wasm");
 
     let now = Instant::now();
     println!("Loading R1CS file...");
@@ -73,39 +77,6 @@ fn main() {
     println!("Creating public parameters...");
     let pp: PublicParams<G1, G2, _, _> = create_public_params(r1cs.clone());
     println!("Public parameters created in {:?}", now.elapsed());
-
-    //let serialized = serde_json::to_string(&pp).unwrap();
-    //let mut file = File::create("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    //file.write_all(serialized.as_bytes()).unwrap();
-
-    /* 
-    now = Instant::now();
-    // Serialize the public parameters
-    let serialized = bincode::serialize(&pp).unwrap(); // Assuming you're using Bincode
-    // Compress the serialized data
-    let compressed = compress_data(&serialized); // Define a function to compress data
-
-    // Write the compressed data to the file
-    let mut file = File::create("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    file.write_all(&compressed).unwrap();
-    println!("Public parameters stored to file in {:?}", now.elapsed());
-    */
-
-    /*now = Instant::now();
-    let mut file = File::open("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    let mut compressed_data = Vec::new();
-    file.read_to_end(&mut compressed_data).unwrap();
-    println!("Public parameters loaded from file in {:?}", now.elapsed());
-
-    now = Instant::now();
-    // Decompress the data
-    let decompressed_data = decompress_data(&compressed_data); // Define a function to decompress data
-    println!("Public parameters decompressed in {:?}", now.elapsed());
-
-    now = Instant::now();
-    // Deserialize the data
-    let pp: PublicParams<G1, G2, _, _> = bincode::deserialize(&decompressed_data).unwrap(); // Assuming you're using Bincode
-    println!("Public parameters deserialized in {:?}", now.elapsed());*/
 
     println!(
         "Number of constraints per step (primary circuit): {}",
@@ -184,46 +155,3 @@ fn main() {
     assert!(res.is_ok());
 
 }
-/*
-11878389131962663075
-9922462056030557342
-6756396965793543634
-12446269625364732260
-18433728439776304144
-9948993517021512060
-8616204783675899344
-12630110559440107129
-7828219513492386041
-3988479630986735061
-17828618373474417767
-7725776341465200115
-15936664623177566288
-3250397285527463885
-12867682233480762946
-7876377878669208042
-17119974326854866418
-4804456518640350784
-12443422089272457229
-9048921188902050084
-
-11878389131962663075
-9922462056030557342
-6756396965793543634
-12446269625364732260
-18433728439776304144
-9948993517021512060
-8616204783675899344
-12630110559440107129
-7828219513492386041
-3988479630986735061
-17828618373474417767
-7725776341465200115
-15936664623177566288
-3250397285527463885
-12867682233480762946
-7876377878669208042
-17119974326854866418
-4804456518640350784
-12443422089272457229
-9048921188902050084
-*/

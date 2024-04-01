@@ -6,7 +6,7 @@ public_key = '030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435
 private_key = 'D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23'
 sig = '583A91C95E54E6A651C47BEC22744E0B101E2C4060E7B08F6341657DAD9BC3EE7D1489C7395DB0188D3A56A977ECBA54B36FA9371B40319655B1B4429E33EF2D'
 message_digest = hashlib.sha512(message).digest()[0:32]
-
+print(hashlib.sha512(message).digest().hex())
 print(message_digest.hex())
 
 vk = ecdsa.VerifyingKey.from_string(bytes.fromhex(public_key), curve=ecdsa.SECP256k1)
@@ -149,3 +149,29 @@ y = pow(x**3+7, exp, p)
 print(x, y)
 print(y**2 % p)
 print(pow(x, 3, p))
+
+
+public_key = "029D19FB0940E5C0D85873FA711999944A687D129DA5C33E928C2751FC1B31EB32"
+hash = "25498AF5C457C3BFC3C6F1301F21265CD1080E43323358A26C9F0864830B924C"
+sig = "DD29DCAC825EF9E22D260395C2113A2A83EEA02B9F2A51BD6BF783CE4A7C52295245B90757EFB26C69C547CAE27600FC35465D1964CECA88A12A20CF3CF9CECF"
+
+vk = ecdsa.VerifyingKey.from_string(bytes.fromhex(public_key), curve=ecdsa.SECP256k1)
+is_valid = vk.verify_digest(bytes.fromhex(sig), bytes.fromhex(hash), sigdecode=ecdsa.util.sigdecode_string)
+print("Signature is valid:", is_valid)
+
+
+def convert_hex_to_string(hex_string):    
+    # Split the hex string into pairs of characters
+    hex_pairs = [hex_string[i:i+2] for i in range(0, len(hex_string), 2)]
+    
+    # Convert each hex pair to decimal and join them with ', ' separator
+    decimal_values = [int(hex_pair, 16) for hex_pair in hex_pairs]
+    formatted_string = ", ".join(["0x{:02X}".format(value) for value in decimal_values])
+    
+    return "{" + formatted_string + "}"
+V
+# Example hexadecimal string
+hex_string = "22800000012605206BC9292D625C7F3A79FB128736CE51EF515AE2F053594713CE1303137E8C141095D7A0B37DDC7B961C694DE41D4D3A55545017905E6C0A433634F7B84FCC6E26FE0E18207C78B408570E93EEEDA714183C72B050191874380B869F17469BE55AC0DF6D1151B88C9E22F7DD81D6CDF2B1FD362F3495732103C70A093F62EBE1C734F98E48B921A38EF0E2DF6CA8AFE094ECC842489A198DE5764730450221009A4542494273F645D9A8C66B888E8DF266E10306F0C009E369F8114325E704CC022006C269446A9A737D0CCD5E90C80BC8E2E8AB91C22D4372707243C3591AE78E13"
+
+# Convert and print the result
+print(convert_hex_to_string(hex_string))
