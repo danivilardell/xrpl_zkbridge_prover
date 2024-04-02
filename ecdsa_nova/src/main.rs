@@ -3,10 +3,10 @@ use std::{collections::HashMap, env::current_dir, time::Instant};
 use nova_snark::{CompressedSNARK, PublicParams};
 use serde_json::json;
 use std::io::{Write, Read};
-use serde_json::Value;
 use std::fs::File;
 use serde::{Serialize, Deserialize};
-
+use num_bigint::BigUint;
+use num_traits::Num;
 
 fn _compress_data(data: &[u8]) -> Vec<u8> {
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -21,17 +21,84 @@ fn _decompress_data(data: &[u8]) -> Vec<u8> {
     decompressed
 }
 
+fn decompress_public_key(public_key_hex: String) -> (BigUint, BigUint) {
+    // Convert the hexadecimal public key to bytes
+    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode hex");
+
+    // Extract the x-coordinate from the public key bytes (excluding the prefix byte)
+    let x_hex = &public_key_bytes[1..33];
+
+    // Convert the x-coordinate to a big integer
+    let x_int = BigUint::from_bytes_be(x_hex);
+
+    let p: BigUint = BigUint::from(2u32).pow(256) - BigUint::from(2u32).pow(32) - BigUint::from(2u32).pow(10) + BigUint::from(2u32).pow(6) - BigUint::from(2u32).pow(4) - BigUint::from(1u32);
+    let exp = (&p + BigUint::from(1u32)) / BigUint::from(4u32);
+    let y0 = x_int.modpow(&BigUint::from(3u32), &p) + BigUint::from(7u32);
+    let y0 = y0.modpow(&exp, &p);
+
+    let prefix_byte = public_key_bytes[0];
+    let y_int = if prefix_byte == 0x03 {
+        y0.clone()
+    } else if prefix_byte == 0x02 {
+        &p - &y0
+    } else {
+        panic!("Invalid prefix byte")
+    };
+
+    (x_int, y_int)
+}
+
+fn decompress_signature(sig: String) -> (BigUint, BigUint) {
+    let has_zeros_r = &sig[6..8];
+
+    let r: BigUint;
+    let s: BigUint;
+    if has_zeros_r == "20" {
+        r = BigUint::from_str_radix(&sig[8..72], 16).unwrap();
+        let has_zeros_s = &sig[74..76];
+
+        if has_zeros_s == "20" {
+            s = BigUint::from_str_radix(&sig[76..140], 16).unwrap();
+        } else {
+            s = BigUint::from_str_radix(&sig[78..142], 16).unwrap();
+        }
+        
+    } else {
+        r = BigUint::from_str_radix(&sig[10..74], 16).unwrap();
+        let has_zeros_s = &sig[76..78];
+
+        if has_zeros_s == "20" {
+            s = BigUint::from_str_radix(&sig[78..142], 16).unwrap();
+        } else {
+            s = BigUint::from_str_radix(&sig[80..144], 16).unwrap();
+        }
+    }
+
+    return (r, s);
+}
+
+fn bigint_to_array(n: u64, k: u64, x: BigUint) -> Vec<String> {
+    let modulus = BigUint::from(1u32) << n;
+    let mut ret = Vec::new();
+    let mut x_temp = x.clone();
+    
+    for _ in 0..k {
+        ret.push(format!("{}", &x_temp % &modulus));
+        x_temp /= &modulus;
+    }
+    
+    ret
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Witness {
-    r: [String; 4],
-    s: [String; 4],
-    mghash: [String; 4],
-    pubkey: [[String; 4]; 2],
+    sig: String,
+    mghash: String,
+    pubkey: String,
 }
 
 fn main() {
 
-    let iteration_count = 2;
     let root = current_dir().unwrap();
 
     // The cycle of curves we use, can be any cycle supported by Nova
@@ -49,21 +116,30 @@ fn main() {
         .expect("Failed to read file");
 
     // Parse the JSON string into a serde_json::Value
-    let input_json: Value = serde_json::from_str(&input_json_string).expect("Failed to parse JSON");
     let datas: Vec<Witness> = serde_json::from_str(&input_json_string).unwrap();
-
-    println!("Input JSON: {:?}", input_json);
+    let iteration_count = datas.len(); // Number of signatures to fold
 
     for wtns in datas {
+        // Find the uncompressed 2-point representation
+        let uncompressed_public_key = decompress_public_key(wtns.pubkey);
+    
+        let x = bigint_to_array(64, 4, uncompressed_public_key.0);
+        let y = bigint_to_array(64, 4, uncompressed_public_key.1);
+
+        let hash = bigint_to_array(64, 4, BigUint::from_str_radix(wtns.mghash.as_str(), 16).unwrap());
+
+        let sig = decompress_signature(wtns.sig);
+        let r = bigint_to_array(64, 4, sig.0);
+        let s = bigint_to_array(64, 4, sig.1);
+
         let mut private_input = HashMap::new();
-        private_input.insert("r".to_string(), json!(wtns.r));
-        private_input.insert("s".to_string(), json!(wtns.s));
-        private_input.insert("msghash".to_string(), json!(wtns.mghash));
-        private_input.insert("pubkey".to_string(), json!(wtns.pubkey));
+        private_input.insert("r".to_string(), json!(r));
+        private_input.insert("s".to_string(), json!(s));
+        private_input.insert("msghash".to_string(), json!(hash));
+        private_input.insert("pubkey".to_string(), json!([x, y]));
         private_inputs.push(private_input);
     }
 
-    println!("Private inputs: {:?}", private_inputs);
 
     let circuit_file = root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify.r1cs");
     let witness_generator_file =
