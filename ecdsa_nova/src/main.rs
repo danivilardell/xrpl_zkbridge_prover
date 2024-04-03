@@ -1,6 +1,7 @@
-use nova_scotia::{circom::reader::load_r1cs, FileLocation, create_public_params, create_recursive_circuit, F, S};
+use nova_scotia::{circom::reader::load_r1cs, FileLocation, create_public_params, create_recursive_circuit, F, S, circom::circuit::CircomCircuit};
+use pasta_curves::{Ep, Eq, Fp, Fq};
 use std::{collections::HashMap, env::current_dir, time::Instant};
-use nova_snark::{CompressedSNARK, PublicParams};
+use nova_snark::{CompressedSNARK, PublicParams, traits::circuit::TrivialTestCircuit, spartan::snark::RelaxedR1CSSNARK, provider::ipa_pc::EvaluationEngine, VerifierKey};
 use serde_json::json;
 use std::io::{Write, Read};
 use std::fs::File;
@@ -97,7 +98,53 @@ struct Witness {
     pubkey: String,
 }
 
+fn verify_proof() {
+    type G1 = pasta_curves::pallas::Point;
+    type G2 = pasta_curves::vesta::Point;
+    
+    let iteration_count = 10;
+    let proof_file_path = "proof";
+    let mut proof_file = File::open(proof_file_path).expect("Failed to open file");
+    let mut compressed_snark_json = String::new();
+    proof_file.read_to_string(&mut compressed_snark_json)
+        .expect("Failed to read file");
+
+    // Deserialize JSON string into a Person object
+    let compressed_snark: CompressedSNARK<Ep, Eq, CircomCircuit<Fq>, TrivialTestCircuit<Fp>, RelaxedR1CSSNARK<Ep, EvaluationEngine<Ep>>, RelaxedR1CSSNARK<Eq, EvaluationEngine<Eq>>> = serde_json::from_str(&compressed_snark_json)
+        .expect("Failed to deserialize JSON");
+
+    let start = Instant::now();
+    let vk_file_path = "vk";
+    let mut vk_file = File::open(vk_file_path).expect("Failed to open file");
+    let mut vk_json = String::new();
+    vk_file.read_to_string(&mut vk_json)
+        .expect("Failed to read file");
+    
+    // Deserialize JSON string into a Person object
+    let vk: VerifierKey<Ep, Eq, CircomCircuit<Fq>, TrivialTestCircuit<Fp>, RelaxedR1CSSNARK<Ep, EvaluationEngine<Ep>>, RelaxedR1CSSNARK<Eq, EvaluationEngine<Eq>>> = serde_json::from_str(&vk_json)
+        .expect("Failed to deserialize JSON");
+    
+    println!("vk loaded from file in {:?}", start.elapsed());
+
+    let start_public_input = [F::<G1>::from(0)];
+
+    let start = Instant::now();
+    let res = compressed_snark.verify(
+        &vk,
+        iteration_count,
+        start_public_input.to_vec(),
+        [F::<G2>::from(0)].to_vec(),
+    );
+    println!(
+        "CompressedSNARK::verify: {:?}, took {:?}",
+        res.is_ok(),
+        start.elapsed()
+    );
+    assert!(res.is_ok());
+}
+
 fn main() {
+    verify_proof();
 
     let root = current_dir().unwrap();
 
@@ -133,6 +180,10 @@ fn main() {
         let s = bigint_to_array(64, 4, sig.1);
 
         let mut private_input = HashMap::new();
+        println!("r: {:?}", r);
+        println!("s: {:?}", s);
+        println!("msghash: {:?}", hash);
+        println!("pubkey: {:?}", [x.clone(), y.clone()]);
         private_input.insert("r".to_string(), json!(r));
         private_input.insert("s".to_string(), json!(s));
         private_input.insert("msghash".to_string(), json!(hash));
@@ -141,9 +192,9 @@ fn main() {
     }
 
 
-    let circuit_file = root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify.r1cs");
+    let circuit_file = root.join("/home/ubuntu/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify.r1cs");
     let witness_generator_file =
-        root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify_js/verify.wasm");
+        root.join("/home/ubuntu/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify_cpp/verify");
 
     let now = Instant::now();
     println!("Loading R1CS file...");
@@ -188,7 +239,6 @@ fn main() {
     .unwrap();
     println!("RecursiveSNARK creation took {:?}", start.elapsed());
 
-
     // verify the recursive SNARK
     println!("Verifying a RecursiveSNARK...");
     let start = Instant::now();
@@ -205,14 +255,35 @@ fn main() {
     let start = Instant::now();
 
     let (pk, vk) = CompressedSNARK::<_, _, _, _, S<G1>, S<G2>>::setup(&pp).unwrap();
+
+    let file_path = "vk";
+
+    // Open the file in write mode
+    let mut file = File::create(file_path).expect("Failed to create file");
+
+    file.write_all(serde_json::to_string(&vk).unwrap().as_bytes())
+        .expect("Failed to write to file");
+
+    println!("vk stored in file");
+
     let res = CompressedSNARK::<_, _, _, _, S<G1>, S<G2>>::prove(&pp, &pk, &recursive_snark);
     println!(
         "CompressedSNARK::prove: {:?}, took {:?}",
         res.is_ok(),
         start.elapsed()
     );
+    
     assert!(res.is_ok());
     let compressed_snark = res.unwrap();
+    println!("{:?}", serde_json::to_string(&compressed_snark).unwrap());
+
+    let file_path = "proof";
+
+    // Open the file in write mode
+    let mut file = File::create(file_path).expect("Failed to create file");
+
+    file.write_all(serde_json::to_string(&compressed_snark).unwrap().as_bytes())
+        .expect("Failed to write to file");
 
     // verify the compressed SNARK
     println!("Verifying a CompressedSNARK...");
