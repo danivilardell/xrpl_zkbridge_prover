@@ -5,7 +5,11 @@ use nova_snark::{CompressedSNARK, PublicParams, traits::circuit::TrivialTestCirc
 use serde_json::json;
 use std::io::{Write, Read};
 use std::fs::File;
+<<<<<<< HEAD
 use serde::{Serialize, Deserialize, Serializer};
+=======
+use serde::{Serialize, Deserialize};
+>>>>>>> 5852c001aa8b90c7b114cb6b5514f0b2acd0eb8b
 use num_bigint::BigUint;
 use num_traits::Num;
 
@@ -179,6 +183,7 @@ fn main() {
         let y = bigint_to_array(64, 4, uncompressed_public_key.1);
 
         let hash = bigint_to_array(64, 4, BigUint::from_str_radix(wtns.mghash.as_str(), 16).unwrap());
+
 
         let r = bigint_to_array(64, 4, sig.0);
         let s = bigint_to_array(64, 4, sig.1);
