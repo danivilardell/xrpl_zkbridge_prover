@@ -1,8 +1,13 @@
-use nova_scotia::{circom::reader::load_r1cs, FileLocation, create_public_params, create_recursive_circuit, F, S};
+use nova_scotia::{circom::reader::load_r1cs, FileLocation, create_public_params, create_recursive_circuit, F, S, circom::circuit::CircomCircuit};
+use pasta_curves::{Ep, Eq, Fp, Fq};
 use std::{collections::HashMap, env::current_dir, time::Instant};
-use nova_snark::{CompressedSNARK, PublicParams};
+use nova_snark::{CompressedSNARK, PublicParams, traits::circuit::TrivialTestCircuit, spartan::snark::RelaxedR1CSSNARK, provider::ipa_pc::EvaluationEngine, VerifierKey};
 use serde_json::json;
 use std::io::{Write, Read};
+use std::fs::File;
+use serde::{Serialize, Deserialize, Serializer};
+use num_bigint::BigUint;
+use num_traits::Num;
 
 fn _compress_data(data: &[u8]) -> Vec<u8> {
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
@@ -17,9 +22,129 @@ fn _decompress_data(data: &[u8]) -> Vec<u8> {
     decompressed
 }
 
-fn main() {
+fn decompress_public_key(public_key_hex: String) -> (BigUint, BigUint) {
+    // Convert the hexadecimal public key to bytes
+    let public_key_bytes = hex::decode(public_key_hex).expect("Failed to decode hex");
 
-    let iteration_count = 4;
+    // Extract the x-coordinate from the public key bytes (excluding the prefix byte)
+    let x_hex = &public_key_bytes[1..33];
+
+    // Convert the x-coordinate to a big integer
+    let x_int = BigUint::from_bytes_be(x_hex);
+
+    let p: BigUint = BigUint::from(2u32).pow(256) - BigUint::from(2u32).pow(32) - BigUint::from(2u32).pow(10) + BigUint::from(2u32).pow(6) - BigUint::from(2u32).pow(4) - BigUint::from(1u32);
+    let exp = (&p + BigUint::from(1u32)) / BigUint::from(4u32);
+    let y0 = x_int.modpow(&BigUint::from(3u32), &p) + BigUint::from(7u32);
+    let y0 = y0.modpow(&exp, &p);
+
+    let prefix_byte = public_key_bytes[0];
+    let y_int = if prefix_byte == 0x03 {
+        y0.clone()
+    } else if prefix_byte == 0x02 {
+        &p - &y0
+    } else {
+        panic!("Invalid prefix byte")
+    };
+
+    (x_int, y_int)
+}
+
+fn decompress_signature(sig: String) -> (BigUint, BigUint) {
+    let has_zeros_r = &sig[6..8];
+
+    let r: BigUint;
+    let s: BigUint;
+    if has_zeros_r == "20" {
+        r = BigUint::from_str_radix(&sig[8..72], 16).unwrap();
+        let has_zeros_s = &sig[74..76];
+
+        if has_zeros_s == "20" {
+            s = BigUint::from_str_radix(&sig[76..140], 16).unwrap();
+        } else {
+            s = BigUint::from_str_radix(&sig[78..142], 16).unwrap();
+        }
+        
+    } else {
+        r = BigUint::from_str_radix(&sig[10..74], 16).unwrap();
+        let has_zeros_s = &sig[76..78];
+
+        if has_zeros_s == "20" {
+            s = BigUint::from_str_radix(&sig[78..142], 16).unwrap();
+        } else {
+            s = BigUint::from_str_radix(&sig[80..144], 16).unwrap();
+        }
+    }
+
+    return (r, s);
+}
+
+fn bigint_to_array(n: u64, k: u64, x: BigUint) -> Vec<String> {
+    let modulus = BigUint::from(1u32) << n;
+    let mut ret = Vec::new();
+    let mut x_temp = x.clone();
+    
+    for _ in 0..k {
+        ret.push(format!("{}", &x_temp % &modulus));
+        x_temp /= &modulus;
+    }
+    
+    ret
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Witness {
+    sig: String,
+    mghash: String,
+    pubkey: String,
+}
+
+fn verify_proof() {
+    type G1 = pasta_curves::pallas::Point;
+    type G2 = pasta_curves::vesta::Point;
+    
+    let iteration_count = 10;
+    let proof_file_path = "proof";
+    let mut proof_file = File::open(proof_file_path).expect("Failed to open file");
+    let mut compressed_snark_json = String::new();
+    proof_file.read_to_string(&mut compressed_snark_json)
+        .expect("Failed to read file");
+
+    // Deserialize JSON string into a Person object
+    let compressed_snark: CompressedSNARK<Ep, Eq, CircomCircuit<Fq>, TrivialTestCircuit<Fp>, RelaxedR1CSSNARK<Ep, EvaluationEngine<Ep>>, RelaxedR1CSSNARK<Eq, EvaluationEngine<Eq>>> = serde_json::from_str(&compressed_snark_json)
+        .expect("Failed to deserialize JSON");
+
+    let start = Instant::now();
+    let vk_file_path = "vk";
+    let mut vk_file = File::open(vk_file_path).expect("Failed to open file");
+    let mut vk_json = String::new();
+    vk_file.read_to_string(&mut vk_json)
+        .expect("Failed to read file");
+    
+    // Deserialize JSON string into a Person object
+    let vk: VerifierKey<Ep, Eq, CircomCircuit<Fq>, TrivialTestCircuit<Fp>, RelaxedR1CSSNARK<Ep, EvaluationEngine<Ep>>, RelaxedR1CSSNARK<Eq, EvaluationEngine<Eq>>> = serde_json::from_str(&vk_json)
+        .expect("Failed to deserialize JSON");
+    
+    println!("vk loaded from file in {:?}", start.elapsed());
+
+    let start_public_input = [F::<G1>::from(0)];
+
+    let start = Instant::now();
+    let res = compressed_snark.verify(
+        &vk,
+        iteration_count,
+        start_public_input.to_vec(),
+        [F::<G2>::from(0)].to_vec(),
+    );
+    println!(
+        "CompressedSNARK::verify: {:?}, took {:?}",
+        res.is_ok(),
+        start.elapsed()
+    );
+    assert!(res.is_ok());
+}
+
+fn main() {
+    //verify_proof();
     let root = current_dir().unwrap();
 
     // The cycle of curves we use, can be any cycle supported by Nova
@@ -28,42 +153,52 @@ fn main() {
 
     let mut private_inputs = Vec::new();
 
-    /*{"r": ["11878389131962663075",
-        "9922462056030557342",
-        "6756396965793543634",
-       "12446269625364732260"],
- "s": ["18433728439776304144",
-        "9948993517021512060",
-        "8616204783675899344",
-      "12630110559440107129"],
- "msghash": ["7828219513492386041",
-             "3988479630986735061",
-            "17828618373474417767",
-            "7725776341465200115"],
- "pubkey": [["15936664623177566288",
-              "3250397285527463885",
-             "12867682233480762946",
-             "7876377878669208042"],
-            ["17119974326854866418",
-              "4804456518640350784",
-             "12443422089272457229",
-              "9048921188902050084"]]
-}
- */
-    for _ in 0..iteration_count {
+    let input_json_path = "./src/testing_files/input_data.json";
+    let mut input_json_file = File::open(input_json_path).expect("Failed to open file");
+
+    // Read the file contents into a string
+    let mut input_json_string = String::new();
+    input_json_file.read_to_string(&mut input_json_string)
+        .expect("Failed to read file");
+
+    // Parse the JSON string into a serde_json::Value
+    let datas: Vec<Witness> = serde_json::from_str(&input_json_string).unwrap();
+    let iteration_count = datas.len(); // Number of signatures to fold
+
+    for wtns in datas {
+        // Find the uncompressed 2-point representation
+        let uncompressed_public_key = decompress_public_key(wtns.pubkey);
+        let sig = decompress_signature(wtns.sig.clone());
+        println!("\"r\": \"{:?}\",", sig.0);
+        println!("\"s\": \"{:?}\",", sig.1);
+        println!("\"msghash\": \"{:?}\",", BigUint::from_str_radix(wtns.mghash.as_str(), 16).unwrap());
+        println!("\"x\": \"{:?}\",", uncompressed_public_key.0.clone());
+        println!("\"y\": \"{:?}\"", uncompressed_public_key.1.clone());
+
+        let x = bigint_to_array(64, 4, uncompressed_public_key.0);
+        let y = bigint_to_array(64, 4, uncompressed_public_key.1);
+
+        let hash = bigint_to_array(64, 4, BigUint::from_str_radix(wtns.mghash.as_str(), 16).unwrap());
+
+        let r = bigint_to_array(64, 4, sig.0);
+        let s = bigint_to_array(64, 4, sig.1);
+
         let mut private_input = HashMap::new();
-        private_input.insert("r".to_string(), json!(["11878389131962663075", "9922462056030557342", "6756396965793543634", "12446269625364732260"]));
-        private_input.insert("s".to_string(), json!(["18433728439776304144", "9948993517021512060", "8616204783675899344", "12630110559440107129"]));
-        private_input.insert("msghash".to_string(), json!(["7828219513492386041", "3988479630986735061", "17828618373474417767", "7725776341465200115"]));
-        private_input.insert("pubkey".to_string(), json!([["15936664623177566288", "3250397285527463885", "12867682233480762946", "7876377878669208042"], ["17119974326854866418", "4804456518640350784", "12443422089272457229", "9048921188902050084"]]));
+        println!("r: {:?}", r);
+        println!("s: {:?}", s);
+        println!("msghash: {:?}", hash);
+        println!("pubkey: {:?}", [x.clone(), y.clone()]);
+        private_input.insert("r".to_string(), json!(r));
+        private_input.insert("s".to_string(), json!(s));
+        private_input.insert("msghash".to_string(), json!(hash));
+        private_input.insert("pubkey".to_string(), json!([x, y]));
         private_inputs.push(private_input);
     }
 
-    println!("Private inputs: {:?}", private_inputs);
 
-    let circuit_file = root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/verify.r1cs");
+    let circuit_file = root.join("/home/ubuntu/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify.r1cs");
     let witness_generator_file =
-        root.join("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/verify_js/verify.wasm");
+        root.join("/home/ubuntu/xrpl_zkbridge_prover/ecdsa_nova/src/testing_files/verify_cpp/verify");
 
     let now = Instant::now();
     println!("Loading R1CS file...");
@@ -73,39 +208,6 @@ fn main() {
     println!("Creating public parameters...");
     let pp: PublicParams<G1, G2, _, _> = create_public_params(r1cs.clone());
     println!("Public parameters created in {:?}", now.elapsed());
-
-    //let serialized = serde_json::to_string(&pp).unwrap();
-    //let mut file = File::create("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    //file.write_all(serialized.as_bytes()).unwrap();
-
-    /* 
-    now = Instant::now();
-    // Serialize the public parameters
-    let serialized = bincode::serialize(&pp).unwrap(); // Assuming you're using Bincode
-    // Compress the serialized data
-    let compressed = compress_data(&serialized); // Define a function to compress data
-
-    // Write the compressed data to the file
-    let mut file = File::create("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    file.write_all(&compressed).unwrap();
-    println!("Public parameters stored to file in {:?}", now.elapsed());
-    */
-
-    /*now = Instant::now();
-    let mut file = File::open("/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/testing_nova/src/testing_files/public_params.pp").unwrap();
-    let mut compressed_data = Vec::new();
-    file.read_to_end(&mut compressed_data).unwrap();
-    println!("Public parameters loaded from file in {:?}", now.elapsed());
-
-    now = Instant::now();
-    // Decompress the data
-    let decompressed_data = decompress_data(&compressed_data); // Define a function to decompress data
-    println!("Public parameters decompressed in {:?}", now.elapsed());
-
-    now = Instant::now();
-    // Deserialize the data
-    let pp: PublicParams<G1, G2, _, _> = bincode::deserialize(&decompressed_data).unwrap(); // Assuming you're using Bincode
-    println!("Public parameters deserialized in {:?}", now.elapsed());*/
 
     println!(
         "Number of constraints per step (primary circuit): {}",
@@ -141,7 +243,6 @@ fn main() {
     .unwrap();
     println!("RecursiveSNARK creation took {:?}", start.elapsed());
 
-
     // verify the recursive SNARK
     println!("Verifying a RecursiveSNARK...");
     let start = Instant::now();
@@ -158,14 +259,35 @@ fn main() {
     let start = Instant::now();
 
     let (pk, vk) = CompressedSNARK::<_, _, _, _, S<G1>, S<G2>>::setup(&pp).unwrap();
+
+    let file_path = "vk";
+
+    // Open the file in write mode
+    let mut file = File::create(file_path).expect("Failed to create file");
+
+    file.write_all(serde_json::to_string(&vk).unwrap().as_bytes())
+        .expect("Failed to write to file");
+
+    println!("vk stored in file");
+
     let res = CompressedSNARK::<_, _, _, _, S<G1>, S<G2>>::prove(&pp, &pk, &recursive_snark);
     println!(
         "CompressedSNARK::prove: {:?}, took {:?}",
         res.is_ok(),
         start.elapsed()
     );
+    
     assert!(res.is_ok());
     let compressed_snark = res.unwrap();
+    println!("{:?}", serde_json::to_string(&compressed_snark).unwrap());
+
+    let file_path = "proof";
+
+    // Open the file in write mode
+    let mut file = File::create(file_path).expect("Failed to create file");
+
+    file.write_all(serde_json::to_string(&compressed_snark).unwrap().as_bytes())
+        .expect("Failed to write to file");
 
     // verify the compressed SNARK
     println!("Verifying a CompressedSNARK...");
@@ -184,46 +306,3 @@ fn main() {
     assert!(res.is_ok());
 
 }
-/*
-11878389131962663075
-9922462056030557342
-6756396965793543634
-12446269625364732260
-18433728439776304144
-9948993517021512060
-8616204783675899344
-12630110559440107129
-7828219513492386041
-3988479630986735061
-17828618373474417767
-7725776341465200115
-15936664623177566288
-3250397285527463885
-12867682233480762946
-7876377878669208042
-17119974326854866418
-4804456518640350784
-12443422089272457229
-9048921188902050084
-
-11878389131962663075
-9922462056030557342
-6756396965793543634
-12446269625364732260
-18433728439776304144
-9948993517021512060
-8616204783675899344
-12630110559440107129
-7828219513492386041
-3988479630986735061
-17828618373474417767
-7725776341465200115
-15936664623177566288
-3250397285527463885
-12867682233480762946
-7876377878669208042
-17119974326854866418
-4804456518640350784
-12443422089272457229
-9048921188902050084
-*/

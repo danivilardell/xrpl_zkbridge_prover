@@ -1,0 +1,1 @@
+Result<CompressedSNARK<Ep, pasta_curves::Eq, CircomCircuit<Fq>, TrivialTestCircuit<pasta_curves::Fp>, nova_snark::spartan::snark::RelaxedR1CSSNARK<Ep, EvaluationEngine<Ep>>, nova_snark::spartan::snark::RelaxedR1CSSNARK<pasta_curves::Eq, EvaluationEngine<pasta_curves::Eq>>>, NovaError>

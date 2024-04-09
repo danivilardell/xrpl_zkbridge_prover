@@ -1,0 +1,8 @@
+/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova_verifier/target/debug/build/typenum-e25bf7b7ec2dcbad/build_script_main-e25bf7b7ec2dcbad: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/main.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/generic_const_mappings.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/op.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/tests.rs
+
+/Users/danielvilardellregue/Projects/xrpl_zkbridge_prover/ecdsa_nova_verifier/target/debug/build/typenum-e25bf7b7ec2dcbad/build_script_main-e25bf7b7ec2dcbad.d: /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/main.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/generic_const_mappings.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/op.rs /Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/tests.rs
+
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/main.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/generic_const_mappings.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/op.rs:
+/Users/danielvilardellregue/.cargo/registry/src/index.crates.io-6f17d22bba15001f/typenum-1.17.0/build/tests.rs:
