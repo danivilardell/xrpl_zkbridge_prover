@@ -5,11 +5,7 @@ use nova_snark::{CompressedSNARK, PublicParams, traits::circuit::TrivialTestCirc
 use serde_json::json;
 use std::io::{Write, Read};
 use std::fs::File;
-<<<<<<< HEAD
 use serde::{Serialize, Deserialize, Serializer};
-=======
-use serde::{Serialize, Deserialize};
->>>>>>> 5852c001aa8b90c7b114cb6b5514f0b2acd0eb8b
 use num_bigint::BigUint;
 use num_traits::Num;
 
