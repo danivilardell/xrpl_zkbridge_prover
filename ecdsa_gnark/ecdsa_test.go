@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"os"
+	"runtime"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/backend/witness"
+	"github.com/consensys/gnark/constraint"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/frontend/cs/r1cs"
 	"github.com/consensys/gnark/std/math/emulated"
@@ -25,9 +30,9 @@ type Signatures struct {
 	Y       string `json:"y"`
 }
 
-func TestEcdsaSHA256(t *testing.T) {
+func TestEcdsa(t *testing.T) {
 
-	fileContent, _ := ioutil.ReadFile("input.json")
+	fileContent, _ := ioutil.ReadFile("test_files/input_5.json")
 	var signatures []Signatures
 	json.Unmarshal(fileContent, &signatures)
 
@@ -71,6 +76,7 @@ func TestEcdsaSHA256(t *testing.T) {
 		err = groth16.Verify(proofs[i], vk, public_witness)
 		assert.NoError(err)
 		fmt.Println("Proof #", i, "verified")
+
 	}
 
 	foldedProof, err := groth16.FoldProofs(proofs, vk)
@@ -95,8 +101,147 @@ func TestEcdsaSHA256(t *testing.T) {
 	}
 }
 
+func TestGenerateR1CS(t *testing.T) {
+	file, _ := os.OpenFile("test_files/utils/r1cs.txt", os.O_WRONLY|os.O_CREATE, 0666)
+	defer file.Close()
+
+	fmt.Println("Generating r1cs...")
+	cs, err := frontend.Compile(ecc.BLS12_377.ScalarField(), r1cs.NewBuilder, &EcdsaCircuit[emulated.Secp256k1Fp, emulated.Secp256k1Fr]{})
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(len(cs.(constraint.R1CS).GetR1Cs()))
+
+	os.Truncate("test_files/utils/r1cs.txt", 0)
+	cs.WriteTo(file)
+}
+
+// This test has to be run after TestGenerateR1CS has been run
+func TestGenerateKeys(t *testing.T) {
+	r1cs_file, _ := os.Open("test_files/utils/r1cs.txt")
+	defer r1cs_file.Close()
+
+	fmt.Println("Retrieving constraints...")
+	cs := groth16.NewCS(ecc.BLS12_377)
+	cs.ReadFrom(r1cs_file)
+
+	pk_file, _ := os.OpenFile("test_files/utils/pk.txt", os.O_WRONLY|os.O_CREATE, 0666)
+	defer pk_file.Close()
+
+	vk_file, _ := os.OpenFile("test_files/utils/vk.txt", os.O_WRONLY|os.O_CREATE, 0666)
+	defer vk_file.Close()
+
+	fmt.Println("Generating Keys...")
+	pk, vk, _ := groth16.Setup(cs)
+
+	os.Truncate("test_files/utils/pk.txt", 0)
+	os.Truncate("test_files/utils/vk.txt", 0)
+	pk.WriteTo(pk_file)
+	vk.WriteTo(vk_file)
+}
+
+func TestGenerateFoldedProofParallel(t *testing.T) {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	var wg sync.WaitGroup
+	t1 := time.Now()
+
+	pk_file, _ := os.Open("test_files/utils/pk.txt")
+	pk := groth16.NewProvingKey(ecc.BLS12_377)
+	pk.ReadFrom(pk_file)
+	vk_file, _ := os.Open("test_files/utils/vk.txt")
+	vk := groth16.NewVerifyingKey(ecc.BLS12_377)
+	vk.ReadFrom(vk_file)
+
+	t2 := time.Now()
+	diff := t2.Sub(t1)
+	fmt.Println("TIME TO RETRIEVE KEYS: ", diff)
+
+	t2 = time.Now()
+	fileContent, _ := ioutil.ReadFile("test_files/input_5.json")
+	var signatures []Signatures
+	json.Unmarshal(fileContent, &signatures)
+	proofs := make([]groth16.Proof, len(signatures))
+	assignments := make([]EcdsaCircuit[emulated.Secp256k1Fp, emulated.Secp256k1Fr], len(signatures))
+	for i := 0; i < len(signatures); i++ {
+		fmt.Println("Generating proof #", i)
+		r, _ := new(big.Int).SetString(signatures[i].R, 10)
+		s, _ := new(big.Int).SetString(signatures[i].S, 10)
+		hash, _ := new(big.Int).SetString(signatures[i].MsgHash, 10)
+		x, _ := new(big.Int).SetString(signatures[i].X, 10)
+		y, _ := new(big.Int).SetString(signatures[i].Y, 10)
+
+		assignments[i] = EcdsaCircuit[emulated.Secp256k1Fp, emulated.Secp256k1Fr]{
+			Sig: ecdsa.Signature[emulated.Secp256k1Fr]{
+				R: emulated.ValueOf[emulated.Secp256k1Fr](r),
+				S: emulated.ValueOf[emulated.Secp256k1Fr](s),
+			},
+			Msg: emulated.ValueOf[emulated.Secp256k1Fr](hash),
+			Pub: ecdsa.PublicKey[emulated.Secp256k1Fp, emulated.Secp256k1Fr]{
+				X: emulated.ValueOf[emulated.Secp256k1Fp](x),
+				Y: emulated.ValueOf[emulated.Secp256k1Fp](y),
+			},
+		}
+
+		wg.Add(1)
+		go generateProof(assignments[i], pk, &wg, proofs, i)
+	}
+	wg.Wait()
+	t1 = time.Now()
+	diff = t1.Sub(t2)
+	fmt.Println("TIME TO GENERATE PROOFS: ", diff)
+
+	t1 = time.Now()
+	foldedProof, err := groth16.FoldProofs(proofs, vk)
+	if err != nil {
+		fmt.Println(err)
+	}
+	t2 = time.Now()
+	diff = t2.Sub(t1)
+	fmt.Println("TIME TO FOLD PROOFS: ", diff)
+
+	publicWitnesses := make([]witness.Witness, len(signatures))
+	for i := 0; i < len(signatures); i++ {
+		publicWitness, _ := frontend.NewWitness(&assignments[i], ecc.BLS12_377.ScalarField(), frontend.PublicOnly())
+		publicWitnesses[i] = publicWitness
+	}
+	t1 = time.Now()
+	diff = t1.Sub(t2)
+	fmt.Println("TIME TO GENERATE PUBLIC WITNESSES: ", diff)
+
+	foldingParameters, err := groth16.GetFoldingParameters(proofs, vk, publicWitnesses)
+	if err != nil {
+		fmt.Println(err)
+	}
+	t2 = time.Now()
+	diff = t2.Sub(t1)
+	fmt.Println("TIME TO GENERATE FOLDING PARAMETERS: ", diff)
+
+	err = groth16.VerifyFolded(foldedProof, foldingParameters, vk, publicWitnesses, proofs)
+	if err != nil {
+		fmt.Println(err)
+	}
+	t1 = time.Now()
+	diff = t1.Sub(t2)
+	fmt.Println("TIME TO VERIFY PROOF: ", diff)
+}
+
+func generateProof(assignment EcdsaCircuit[emulated.Secp256k1Fp, emulated.Secp256k1Fr], pk groth16.ProvingKey, wg *sync.WaitGroup, proofs []groth16.Proof, position int) error {
+	r1cs_file, _ := os.Open("test_files/utils/r1cs.txt")
+	cs := groth16.NewCS(ecc.BLS12_377)
+	cs.ReadFrom(r1cs_file)
+	witness, _ := frontend.NewWitness(&assignment, ecc.BLS12_377.ScalarField())
+	proof, err := groth16.Prove(cs, pk, witness)
+	if err != nil {
+		fmt.Println(err)
+	}
+	proofs[position] = proof
+
+	wg.Done()
+	return err
+}
+
 /*
-[{ not working
+[{ working
     "r": "115158035811458795053925695987053306149659527984642617847225020470566121318459",
     "s": "57103074896689946840487982608739427129233226707186500617681853919408460815967",
     "msghash": "24902586981639429803573318083869284215927205872316806891403959192641726669584",

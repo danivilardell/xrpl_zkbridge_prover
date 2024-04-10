@@ -5,7 +5,7 @@ use nova_snark::{CompressedSNARK, PublicParams, traits::circuit::TrivialTestCirc
 use serde_json::json;
 use std::io::{Write, Read};
 use std::fs::File;
-use serde::{Serialize, Deserialize, Serializer};
+use serde::{Serialize, Deserialize};
 use num_bigint::BigUint;
 use num_traits::Num;
 
@@ -36,14 +36,13 @@ fn decompress_public_key(public_key_hex: String) -> (BigUint, BigUint) {
     let exp = (&p + BigUint::from(1u32)) / BigUint::from(4u32);
     let y0 = x_int.modpow(&BigUint::from(3u32), &p) + BigUint::from(7u32);
     let y0 = y0.modpow(&exp, &p);
+    let odd = y0.modpow(&BigUint::from(1u32), &BigUint::from(2u32));
 
     let prefix_byte = public_key_bytes[0];
-    let y_int = if prefix_byte == 0x03 {
-        y0.clone()
-    } else if prefix_byte == 0x02 {
+    let y_int = if (prefix_byte == 0x03 && odd == BigUint::from(0u32)) || (prefix_byte == 0x02 && odd != BigUint::from(0u32)) {
         &p - &y0
-    } else {
-        panic!("Invalid prefix byte")
+    } else  {
+        y0.clone()
     };
 
     (x_int, y_int)
@@ -185,10 +184,6 @@ fn main() {
         let s = bigint_to_array(64, 4, sig.1);
 
         let mut private_input = HashMap::new();
-        println!("r: {:?}", r);
-        println!("s: {:?}", s);
-        println!("msghash: {:?}", hash);
-        println!("pubkey: {:?}", [x.clone(), y.clone()]);
         private_input.insert("r".to_string(), json!(r));
         private_input.insert("s".to_string(), json!(s));
         private_input.insert("msghash".to_string(), json!(hash));

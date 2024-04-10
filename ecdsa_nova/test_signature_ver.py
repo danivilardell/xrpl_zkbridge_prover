@@ -70,21 +70,22 @@ def decompress_public_key(public_key_hex):
 
     p = 2**256-2**32-2**10+2**6-2**4-1
     exp = (p+1)//4
-    y0 = pow(x_int**3+7, exp, p)
-    
+    y_int = pow(x_int**3+7, exp, p)
     prefix_byte = public_key_bytes[0]
-    if prefix_byte == 0x03:
-        y_int = y0
-    elif prefix_byte == 0x02:
-        y_int = p-y0
-        
+    if prefix_byte == 0x03 and y_int % 2 == 0:
+        y_int = p-y_int
+    elif prefix_byte == 0x02 and y_int % 2 == 1:
+        y_int = p-y_int
+    
+    
+    print(x_int, y_int)
     return (x_int, y_int)
 
 # Define SECP256K1 order
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 # Given public key
-public_key = '03536D54FCEED0585D7392CB3D7F3CD8D7DB4F3EFBF0D646B0E26480398754B585'
+public_key = '03E585995BC16711CA38D6D805926435DEC7DDFB9BE54632C2A1D24CF586D58F21'
 
 # Find the uncompressed 2-point representation
 uncompressed_public_key = decompress_public_key(public_key)
@@ -181,9 +182,7 @@ def convert_hex_to_string(hex_string):
 hex_string = "22800000012605206BC9292D625C7F3A79FB128736CE51EF515AE2F053594713CE1303137E8C141095D7A0B37DDC7B961C694DE41D4D3A55545017905E6C0A433634F7B84FCC6E26FE0E18207C78B408570E93EEEDA714183C72B050191874380B869F17469BE55AC0DF6D1151B88C9E22F7DD81D6CDF2B1FD362F3495732103C70A093F62EBE1C734F98E48B921A38EF0E2DF6CA8AFE094ECC842489A198DE5764730450221009A4542494273F645D9A8C66B888E8DF266E10306F0C009E369F8114325E704CC022006C269446A9A737D0CCD5E90C80BC8E2E8AB91C22D4372707243C3591AE78E13"
 
 # Convert and print the result
-<<<<<<< HEAD
 print(convert_hex_to_string(hex_string))
-
 
 public_key = "03536D54FCEED0585D7392CB3D7F3CD8D7DB4F3EFBF0D646B0E26480398754B585"
 hash = "5C1668293802FE4CE9232C8E561F2F99C97BAFB258E11E15817AC49AD1C1DE01"
@@ -192,6 +191,18 @@ sig = "1E4C352F76CC53F502266A9177813515E6651D86950A6C08ECFBC4E96B2AA9CE74D582AF8
 vk = ecdsa.VerifyingKey.from_string(bytes.fromhex(public_key), curve=ecdsa.SECP256k1)
 is_valid = vk.verify_digest(bytes.fromhex(sig), bytes.fromhex(hash), sigdecode=ecdsa.util.sigdecode_string)
 print("Signature is valid:", is_valid)
-=======
-print(convert_hex_to_string(hex_string))
->>>>>>> 5852c001aa8b90c7b114cb6b5514f0b2acd0eb8b
+
+(x, y) = decompress_public_key(public_key)
+print(x, y)
+
+
+public_key = "03E585995BC16711CA38D6D805926435DEC7DDFB9BE54632C2A1D24CF586D58F21"
+hash = "370E5D6000D54EA4D5D55B7076EFC41186AE64CE6DED24CE8D4CA5D1C8956310"
+sig = "FE9923735457081529648C869B6F09F83D22EED8A5B13A6464D01D93A147283B7E3F31EE4CB7118833ADB86A76138FFDE8903BE3C91CC813540FF22D1CC25E5F"
+
+vk = ecdsa.VerifyingKey.from_string(bytes.fromhex(public_key), curve=ecdsa.SECP256k1)
+is_valid = vk.verify_digest(bytes.fromhex(sig), bytes.fromhex(hash), sigdecode=ecdsa.util.sigdecode_string)
+print("Signature is valid:", is_valid)
+
+(x, y) = decompress_public_key(public_key)
+print(x, y)
