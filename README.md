@@ -10,7 +10,7 @@ This repo provies the necessary tools and instruction to generate a proof for th
 * [Nova](https://github.com/microsoft/Nova): Folds secp256 ecdsa relaxed R1CS instances provided by Circom
 * [Nova-Scotia](https://github.com/nalinbhardwaj/Nova-Scotia): Middleware to take generated output of the Circom compiler (R1CS constraints and generated witnesses) and use them with Nova as a prover
 
-<!-- GETTING STARTED -->
+<!-- GETTING STARTED HERE-->
 ## Getting Started
 
 
